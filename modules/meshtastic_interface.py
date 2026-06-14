@@ -1,11 +1,5 @@
 """
 Etapa 2 — Interface com o nó Meshtastic.
-Responsabilidades:
-  - Conectar via Serial (USB) ou BLE
-  - Receber todos os pacotes da rede mesh
-  - Filtrar pelo canal APRS dedicado (índice configurável)
-  - Expor callbacks para position e text_message
-  - Reconectar automaticamente em caso de falha
 """
 import time
 import threading
@@ -14,7 +8,7 @@ from typing import Callable, Optional
 import meshtastic
 import meshtastic.serial_interface
 import meshtastic.ble_interface
-from meshtastic import mesh_pb2, portnums_pb2
+from pubsub import pub
 
 from modules.logger import get_logger
 
@@ -26,16 +20,13 @@ class MeshtasticInterface:
         self.cfg = cfg["meshtastic"]
         self.aprs_channel = self.cfg["aprs_channel_index"]
         self.reconnect_interval = self.cfg.get("reconnect_interval_s", 30)
-        self.iface: Optional[meshtastic.serial_interface.SerialInterface] = None
+        self.iface = None
         self._running = False
         self._lock = threading.Lock()
+        self._on_position = None
+        self._on_message = None
+        self._on_node_update = None
 
-        # Callbacks registrados externamente
-        self._on_position: Optional[Callable] = None
-        self._on_message: Optional[Callable] = None
-        self._on_node_update: Optional[Callable] = None
-
-    # ── Registro de callbacks ─────────────────────────────────
     def on_position(self, fn: Callable):
         self._on_position = fn
 
@@ -45,7 +36,6 @@ class MeshtasticInterface:
     def on_node_update(self, fn: Callable):
         self._on_node_update = fn
 
-    # ── Conexão ───────────────────────────────────────────────
     def connect(self) -> bool:
         mode = self.cfg.get("connection", "serial")
         port = self.cfg.get("serial_port", "auto")
@@ -60,8 +50,6 @@ class MeshtasticInterface:
                 log.error(f"Modo de conexão desconhecido: {mode}")
                 return False
 
-            # Registra callback global de recepção
-            from pubsub import pub
             pub.subscribe(self._receive, "meshtastic.receive")
             pub.subscribe(self._on_connect_cb, "meshtastic.connection.established")
             pub.subscribe(self._on_disconnect_cb, "meshtastic.connection.lost")
@@ -102,7 +90,6 @@ class MeshtasticInterface:
         except Exception as e:
             log.warning(f"Não foi possível ler info do nó: {e}")
 
-    # ── Recepção de pacotes ───────────────────────────────────
     def _receive(self, packet: dict, interface):
         try:
             channel = packet.get("channel", 0)
@@ -111,10 +98,8 @@ class MeshtasticInterface:
             from_id = packet.get("fromId", "?")
             to_id   = packet.get("toId", "^all")
 
-            # Log de todos os pacotes recebidos (DEBUG)
             log.debug(f"PKT ch={channel} from={from_id} to={to_id} port={portnum}")
 
-            # ── Posição (qualquer canal) ──────────────────────
             if portnum == "POSITION_APP":
                 pos = decoded.get("position", {})
                 if pos and self._on_position:
@@ -130,14 +115,12 @@ class MeshtasticInterface:
                         "timestamp": pos.get("time", 0),
                         "raw":       packet,
                     }
-                    # Só repassa se tiver coordenadas válidas
                     if payload["latitude"] != 0 or payload["longitude"] != 0:
                         log.info(f"POSIÇÃO de {from_id}: "
                                  f"{payload['latitude']:.5f},{payload['longitude']:.5f} "
                                  f"alt={payload['altitude']}m ch={channel}")
                         self._on_position(payload)
 
-            # ── Mensagem de texto ─────────────────────────────
             elif portnum == "TEXT_MESSAGE_APP":
                 text = decoded.get("text", "")
                 if self._on_message:
@@ -148,14 +131,12 @@ class MeshtasticInterface:
                         "text":     text,
                         "raw":      packet,
                     }
-                    # Filtra pelo canal APRS apenas para mensagens
                     if channel == self.aprs_channel:
                         log.info(f"MSG APRS-CH de {from_id}: '{text[:60]}'")
                         self._on_message(payload)
                     else:
                         log.debug(f"MSG ignorada (ch={channel}, esperado ch={self.aprs_channel})")
 
-            # ── Nodeinfo (atualização de nó) ──────────────────
             elif portnum == "NODEINFO_APP":
                 if self._on_node_update:
                     user = decoded.get("user", {})
@@ -172,30 +153,23 @@ class MeshtasticInterface:
         except Exception as e:
             log.error(f"Erro ao processar pacote: {e}", exc_info=True)
 
-    # ── Envio de mensagem ─────────────────────────────────────
     def send_text(self, text: str, destination_id: str = "^all",
                   channel_index: int = None) -> bool:
         ch = channel_index if channel_index is not None else self.aprs_channel
         try:
-            self.iface.sendText(
-                text,
-                destinationId=destination_id,
-                channelIndex=ch
-            )
+            self.iface.sendText(text, destinationId=destination_id, channelIndex=ch)
             log.info(f"MSG enviada para {destination_id} ch={ch}: '{text[:60]}'")
             return True
         except Exception as e:
             log.error(f"Erro ao enviar mensagem: {e}")
             return False
 
-    # ── Listagem de nós conhecidos ────────────────────────────
     def get_nodes(self) -> dict:
         try:
             return self.iface.nodes or {}
         except Exception:
             return {}
 
-    # ── Lifecycle ─────────────────────────────────────────────
     def start(self):
         self._running = True
         if not self.connect():
