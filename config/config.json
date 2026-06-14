@@ -1,7 +1,7 @@
 {
   "gateway": {
-    "callsign": "TROQUE-0",
-    "passcode": 00000,
+    "callsign": "PU2OZH-10",
+    "passcode": 19376,
     "comment": "Mesh-APRS Gateway v0.1",
     "icon": "/-",
     "aprs_is_host": "rotate.aprs2.net",
