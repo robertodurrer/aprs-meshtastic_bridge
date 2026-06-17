@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Mesh↔APRS Gateway — main.py
-Etapa 4: posição Meshtastic → APRS-IS
+Etapa 5: mensagens Meshtastic → APRS (com ACK e retry)
 """
 import sys
 import time
@@ -15,22 +15,33 @@ from modules.database import Database
 from modules.meshtastic_interface import MeshtasticInterface
 from modules.aprs_is_connection import APRSISConnection
 from modules.position_handler import PositionHandler
+from modules.message_router import MessageRouter
+from modules.aprs_format import parse_aprs_message
 
 log = get_logger("gateway")
 cfg = load_config()
 
-# Componentes globais
 db      = Database(cfg)
 aprs_is = APRSISConnection(cfg)
 mesh    = MeshtasticInterface(cfg)
 pos_hdl = PositionHandler(db, aprs_is)
+router  = MessageRouter(db, aprs_is, mesh_iface=mesh)
 
 def on_position(payload):
     pos_hdl.handle(payload)
 
-def on_message(payload):
-    # Etapa 5
-    log.info(f"MSG recebida (etapa 5): {payload['from_id']}: {payload['text'][:60]}")
+def on_mesh_message(payload):
+    router.handle_mesh_message(payload)
+
+def on_aprs_is_packet(raw_line: str):
+    parsed = parse_aprs_message(raw_line)
+    if not parsed:
+        return
+    if parsed["type"] == "ack":
+        router.handle_ack(parsed)
+    elif parsed["type"] == "message":
+        log.info(f"MSG APRS→Mesh recebida (etapa 6): "
+                 f"{parsed['src']} → {parsed['dst']}: {parsed['body'][:50]}")
 
 def shutdown(sig, frame):
     log.info("Encerrando gateway...")
@@ -47,13 +58,12 @@ def main():
     signal.signal(signal.SIGINT,  shutdown)
     signal.signal(signal.SIGTERM, shutdown)
 
-    # Inicia conexão APRS-IS
+    aprs_is.on_packet(on_aprs_is_packet)
     aprs_is.start()
-    time.sleep(2)  # aguarda login
+    time.sleep(2)
 
-    # Registra callbacks e inicia Meshtastic
     mesh.on_position(on_position)
-    mesh.on_message(on_message)
+    mesh.on_message(on_mesh_message)
     mesh.start()
 
     log.info("Gateway em operação — Ctrl+C para encerrar")
@@ -62,7 +72,6 @@ def main():
     for op in ops:
         log.info(f"  {op['callsign']} → node {op['node_id']}")
 
-    # Loop principal
     while True:
         time.sleep(30)
         status = "online" if aprs_is.connected else "OFFLINE"
