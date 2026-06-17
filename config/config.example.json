@@ -1,7 +1,7 @@
 {
   "gateway": {
-    "callsign": "PU2OZH-10",
-    "passcode": 19376,
+    "callsign": "SEU-CALL-SSID",
+    "passcode": 0,
     "comment": "Mesh-APRS Gateway v0.1",
     "icon": "/-",
     "aprs_is_host": "rotate.aprs2.net",

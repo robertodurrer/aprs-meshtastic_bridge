@@ -8,3 +8,4 @@ db/*.db
 logs/
 *.log
 .DS_Store
+config/config.json

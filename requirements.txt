@@ -1,0 +1,12 @@
+meshtastic
+aprslib
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+aiofiles
+python-multipart
+pyserial
+bleak
+requests
+python-dotenv
