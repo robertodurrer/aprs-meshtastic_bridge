@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 from typing import List, Dict, Any
 
+import typing
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -38,16 +39,22 @@ app = FastAPI(
 webui_dir = Path(__file__).parent.resolve()  # Make path absolute
 template_dir = webui_dir / "templates"
 
-# Configure template engine
-templates = Jinja2Templates(directory=str(template_dir))
-# Disable caching to prevent issues during development
-templates.env.auto_reload = False
+# Configure template engine with cache disabled
+templates = Jinja2Templates(
+    directory=str(template_dir),
+    auto_reload=True  # Desabilita cache
+)
+import jinja2
+templates.env.cache = jinja2.FileSystemBytecodeCache()
+templates.env.autoescape = True
 app.mount("/static", StaticFiles(directory=str(webui_dir / "static")), name="static")
 
-def serialize_config(cfg: dict) -> dict:
+def serialize_config(cfg: dict) -> typing.Mapping[str, typing.Any]:
     """Serializa a configuração para ser usada nos templates."""
-    return {
-        "gateway": {
+    from types import MappingProxyType
+    
+    config_dict = {
+        "gateway": MappingProxyType({
             "callsign": cfg["gateway"]["callsign"],
             "comment": cfg["gateway"]["comment"],
             "icon": cfg["gateway"]["icon"],
