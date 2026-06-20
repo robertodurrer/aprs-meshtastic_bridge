@@ -61,27 +61,28 @@ def serialize_config(cfg: dict) -> typing.Mapping[str, typing.Any]:
             "aprs_is_host": cfg["gateway"]["aprs_is_host"],
             "aprs_is_port": cfg["gateway"]["aprs_is_port"],
             "aprs_is_filter": cfg["gateway"]["aprs_is_filter"]
-        },
-        "meshtastic": {
+        }),
+        "meshtastic": MappingProxyType({
             "connection": cfg["meshtastic"]["connection"],
             "serial_port": cfg["meshtastic"]["serial_port"],
             "ble_address": cfg["meshtastic"].get("ble_address"),
             "aprs_channel_index": cfg["meshtastic"]["aprs_channel_index"],
             "aprs_channel_name": cfg["meshtastic"]["aprs_channel_name"],
             "reconnect_interval_s": cfg["meshtastic"]["reconnect_interval_s"]
-        },
-        "webui": {
+        }),
+        "webui": MappingProxyType({
             "host": cfg["webui"]["host"],
             "port": cfg["webui"]["port"],
             "enabled": cfg["webui"]["enabled"]
-        },
-        "logging": {
+        }),
+        "logging": MappingProxyType({
             "level": cfg["logging"]["level"],
             "file": cfg["logging"]["file"],
             "max_size_mb": cfg["logging"]["max_size_mb"],
             "backup_count": cfg["logging"]["backup_count"]
-        }
+        })
     }
+    return MappingProxyType(config_dict)
 
 # Modelos Pydantic
 class OperatorCreate(BaseModel):
