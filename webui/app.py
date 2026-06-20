@@ -136,7 +136,11 @@ async def config_page(request: Request):
 @app.get("/api/operators")
 async def get_operators() -> List[Dict[str, Any]]:
     """Lista todos os operadores."""
-    return db.list_operators(active_only=False)
+    try:
+        return db.list_operators(active_only=False)
+    except Exception as e:
+        log.error(f"Erro ao listar operadores via API: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno do servidor")
 
 @app.post("/api/operators")
 async def create_operator(operator: OperatorCreate) -> Dict[str, Any]:
@@ -191,27 +195,38 @@ async def delete_operator(callsign: str) -> Dict[str, Any]:
 @app.get("/api/messages")
 async def get_messages(limit: int = 100) -> List[Dict[str, Any]]:
     """Lista mensagens."""
-    return db.list_messages(limit=limit)
+    try:
+        return db.list_messages(limit=limit)
+    except Exception as e:
+        log.error(f"Erro ao listar mensagens via API: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno do servidor")
 
 @app.get("/api/stats")
 async def get_stats() -> Dict[str, Any]:
     """Estatísticas do gateway."""
-    operators = db.list_operators(active_only=False)
-    messages = db.list_messages(limit=1000)
-    
-    return {
-        "operators": {
-            "total": len(operators),
-            "active": len([op for op in operators if op["active"]]),
-            "inactive": len([op for op in operators if not op["active"]])
-        },
-        "messages": {
-            "total": len(messages),
-            "pending": len([msg for msg in messages if msg["status"] == "pending"]),
-            "delivered": len([msg for msg in messages if msg["status"] == "delivered"]),
-            "failed": len([msg for msg in messages if msg["status"] == "failed"])
+    try:
+        operators = db.list_operators(active_only=False)
+        messages = db.list_messages(limit=1000)
+        
+        return {
+            "operators": {
+                "total": len(operators),
+                "active": len([op for op in operators if op.get("active", False)]),
+                "inactive": len([op for op in operators if not op.get("active", True)])
+            },
+            "messages": {
+                "total": len(messages),
+                "pending": len([msg for msg in messages if msg.get("status") == "pending"]),
+                "delivered": len([msg for msg in messages if msg.get("status") == "delivered"]),
+                "failed": len([msg for msg in messages if msg.get("status") == "failed"])
+            }
         }
-    }
+    except Exception as e:
+        log.error(f"Erro ao obter estatísticas: {e}")
+        return {
+            "operators": {"total": 0, "active": 0, "inactive": 0},
+            "messages": {"total": 0, "pending": 0, "delivered": 0, "failed": 0}
+        }
 
 if __name__ == "__main__":
     import uvicorn

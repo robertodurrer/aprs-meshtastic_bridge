@@ -158,36 +158,52 @@ class Database:
         return dict(row) if row else None
 
     def list_operators(self, active_only: bool = True) -> list:
-        q = "SELECT * FROM operators"
-        if active_only:
-            q += " WHERE active=1"
-        q += " ORDER BY callsign"
-        rows = self.conn.execute(q).fetchall()
-        return [dict(r) for r in rows]
+        try:
+            q = "SELECT * FROM operators"
+            if active_only:
+                q += " WHERE active=1"
+            q += " ORDER BY callsign"
+            rows = self.conn.execute(q).fetchall()
+            return [dict(r) for r in rows]
+        except Exception as e:
+            log.error(f"Erro ao listar operadores: {e}")
+            return []
 
     def update_operator(self, callsign: str, **fields) -> bool:
-        allowed = {"node_id","long_name","short_name","aprs_icon",
-                   "aprs_comment","pub_position","rx_aprs","tx_aprs",
-                   "rf_local","active","last_seen"}
-        updates = {k: v for k, v in fields.items() if k in allowed}
-        if not updates:
+        try:
+            allowed = {"node_id","long_name","short_name","aprs_icon",
+                       "aprs_comment","pub_position","rx_aprs","tx_aprs",
+                       "rf_local","active","last_seen"}
+            updates = {k: v for k, v in fields.items() if k in allowed}
+            if not updates:
+                return False
+            set_clause = ", ".join(f"{k}=?" for k in updates)
+            result = self.conn.execute(
+                f"UPDATE operators SET {set_clause} WHERE callsign=?",
+                (*updates.values(), callsign.upper())
+            )
+            self.conn.commit()
+            return result.rowcount > 0
+        except Exception as e:
+            log.error(f"Erro ao atualizar operador {callsign}: {e}")
             return False
-        set_clause = ", ".join(f"{k}=?" for k in updates)
-        self.conn.execute(
-            f"UPDATE operators SET {set_clause} WHERE callsign=?",
-            (*updates.values(), callsign.upper())
-        )
-        self.conn.commit()
-        return True
 
     def remove_operator(self, callsign: str) -> bool:
-        self.conn.execute(
-            "UPDATE operators SET active=0 WHERE callsign=?",
-            (callsign.upper(),)
-        )
-        self.conn.commit()
-        log.info(f"Operador desativado: {callsign}")
-        return True
+        try:
+            result = self.conn.execute(
+                "UPDATE operators SET active=0 WHERE callsign=?",
+                (callsign.upper(),)
+            )
+            self.conn.commit()
+            if result.rowcount > 0:
+                log.info(f"Operador desativado: {callsign}")
+                return True
+            else:
+                log.warning(f"Operador não encontrado: {callsign}")
+                return False
+        except Exception as e:
+            log.error(f"Erro ao remover operador {callsign}: {e}")
+            return False
 
     def touch_operator(self, callsign: str):
         self.conn.execute(
