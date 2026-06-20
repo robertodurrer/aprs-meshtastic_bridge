@@ -38,11 +38,10 @@ app = FastAPI(
 webui_dir = Path(__file__).parent.resolve()  # Make path absolute
 template_dir = webui_dir / "templates"
 
-# Configure template engine with auto-reload disabled
-templates = Jinja2Templates(
-    directory=str(template_dir),
-    auto_reload=False  # Prevent caching issues during development
-)
+# Configure template engine
+templates = Jinja2Templates(directory=str(template_dir))
+# Disable caching to prevent issues during development
+templates.env.auto_reload = False
 app.mount("/static", StaticFiles(directory=str(webui_dir / "static")), name="static")
 
 # Modelos Pydantic

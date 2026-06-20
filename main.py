@@ -68,9 +68,18 @@ def shutdown(sig=None, frame=None):
 
 def run_webui():
     """Start the web UI in a separate process."""
-    webui_path = Path(__file__).parent / "webui" / "app.py"
-    cmd = ["python", str(webui_path)]
-    subprocess.run(cmd)
+    try:
+        from webui.app import app
+        import uvicorn
+        
+        host = cfg.get("webui", {}).get("host", "0.0.0.0") 
+        port = cfg.get("webui", {}).get("port", 8080)
+        log.info(f"Web UI iniciando em http://{host}:{port}")
+        
+        # Run in current process using uvicorn
+        uvicorn.run(app, host=host, port=port)
+    except Exception as e:
+        log.error(f"Falha ao iniciar Web UI: {e}")
 
 def main():
     # Start web UI if enabled in config
