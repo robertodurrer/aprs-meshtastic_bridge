@@ -43,7 +43,7 @@
                                 </td>
                                 <td><strong>{{ msg.src }}</strong></td>
                                 <td><strong>{{ msg.dst }}</strong></td>
-                                <td>{{ msg.body[:50] }}{% if msg.body|length > 50 %}...{% endif %}</td>
+                                <td>{{ msg.body|truncate(50) }}</td>
                                 <td>
                                     {% if msg.status == 'delivered' %}
                                     <span class="badge bg-success">Entregue</span>
