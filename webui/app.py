@@ -44,6 +44,38 @@ templates = Jinja2Templates(directory=str(template_dir))
 templates.env.auto_reload = False
 app.mount("/static", StaticFiles(directory=str(webui_dir / "static")), name="static")
 
+def serialize_config(cfg: dict) -> dict:
+    """Serializa a configuração para ser usada nos templates."""
+    return {
+        "gateway": {
+            "callsign": cfg["gateway"]["callsign"],
+            "comment": cfg["gateway"]["comment"],
+            "icon": cfg["gateway"]["icon"],
+            "aprs_is_host": cfg["gateway"]["aprs_is_host"],
+            "aprs_is_port": cfg["gateway"]["aprs_is_port"],
+            "aprs_is_filter": cfg["gateway"]["aprs_is_filter"]
+        },
+        "meshtastic": {
+            "connection": cfg["meshtastic"]["connection"],
+            "serial_port": cfg["meshtastic"]["serial_port"],
+            "ble_address": cfg["meshtastic"].get("ble_address"),
+            "aprs_channel_index": cfg["meshtastic"]["aprs_channel_index"],
+            "aprs_channel_name": cfg["meshtastic"]["aprs_channel_name"],
+            "reconnect_interval_s": cfg["meshtastic"]["reconnect_interval_s"]
+        },
+        "webui": {
+            "host": cfg["webui"]["host"],
+            "port": cfg["webui"]["port"],
+            "enabled": cfg["webui"]["enabled"]
+        },
+        "logging": {
+            "level": cfg["logging"]["level"],
+            "file": cfg["logging"]["file"],
+            "max_size_mb": cfg["logging"]["max_size_mb"],
+            "backup_count": cfg["logging"]["backup_count"]
+        }
+    }
+
 # Modelos Pydantic
 class OperatorCreate(BaseModel):
     callsign: str
@@ -97,7 +129,7 @@ async def dashboard(request: Request):
             "stats": stats,
             "operators": operators[:10],  # Últimos 10
             "messages": messages[:10],    # Últimas 10
-            "config": cfg
+            "config": serialize_config(cfg)
         })
     except Exception as e:
         log.error(f"Erro no dashboard: {e}")
