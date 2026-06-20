@@ -11,16 +11,22 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
 # Adiciona o diretório pai ao path para importar módulos
-sys.path.insert(0, str(Path(__file__).parent.parent))
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
 
-from modules.config_loader import load as load_config
-from modules.database import Database
-from modules.logger import get_logger
-
-# Carrega configuração
-cfg = load_config()
-log = get_logger("webui", cfg)
-db = Database(cfg)
+try:
+    from modules.config_loader import load as load_config
+    from modules.database import Database
+    from modules.logger import get_logger
+    
+    # Carrega configuração
+    cfg = load_config()
+    log = get_logger("webui", cfg)
+    db = Database(cfg)
+except Exception as e:
+    print(f"ERRO: Falha ao inicializar aplicação: {e}")
+    print("Verifique se o arquivo config/config.json existe e está válido")
+    sys.exit(1)
 
 app = FastAPI(
     title="Mesh↔APRS Gateway",
@@ -28,9 +34,10 @@ app = FastAPI(
     version="0.1.0"
 )
 
-# Templates e arquivos estáticos
-templates = Jinja2Templates(directory="webui/templates")
-app.mount("/static", StaticFiles(directory="webui/static"), name="static")
+# Templates e arquivos estáticos - paths relativos ao diretório do projeto
+webui_dir = Path(__file__).parent
+templates = Jinja2Templates(directory=str(webui_dir / "templates"))
+app.mount("/static", StaticFiles(directory=str(webui_dir / "static")), name="static")
 
 # Modelos Pydantic
 class OperatorCreate(BaseModel):
@@ -69,12 +76,12 @@ async def dashboard(request: Request):
         messages = db.list_messages(limit=20)
         
         # Convert to plain dicts to avoid Jinja2 caching issues
-        operators = [dict(op) for op in operators]
-        messages = [dict(msg) for msg in messages]
+        operators = [dict(op) for op in operators] if operators else []
+        messages = [dict(msg) for msg in messages] if messages else []
         
         stats = {
             "total_operators": len(operators),
-            "active_operators": len([op for op in operators if op.get("active", False)]),
+            "active_operators": len([op for op in operators if op.get("active", True)]),
             "total_messages": len(messages),
             "pending_messages": len([msg for msg in messages if msg.get("status") == "pending"]),
         }
@@ -102,7 +109,7 @@ async def operators_page(request: Request):
     try:
         operators = db.list_operators(active_only=False)
         # Convert to plain dicts to avoid Jinja2 caching issues
-        operators = [dict(op) for op in operators]
+        operators = [dict(op) for op in operators] if operators else []
         return templates.TemplateResponse("operators.html", {
             "request": request,
             "operators": operators
@@ -120,7 +127,7 @@ async def messages_page(request: Request):
     try:
         messages = db.list_messages(limit=100)
         # Convert to plain dicts to avoid Jinja2 caching issues
-        messages = [dict(msg) for msg in messages]
+        messages = [dict(msg) for msg in messages] if messages else []
         return templates.TemplateResponse("messages.html", {
             "request": request,
             "messages": messages
@@ -219,13 +226,13 @@ async def get_stats() -> Dict[str, Any]:
         messages = db.list_messages(limit=1000)
         
         # Convert to plain dicts to avoid issues
-        operators = [dict(op) for op in operators]
-        messages = [dict(msg) for msg in messages]
+        operators = [dict(op) for op in operators] if operators else []
+        messages = [dict(msg) for msg in messages] if messages else []
         
         return {
             "operators": {
                 "total": len(operators),
-                "active": len([op for op in operators if op.get("active", False)]),
+                "active": len([op for op in operators if op.get("active", True)]),
                 "inactive": len([op for op in operators if not op.get("active", True)])
             },
             "messages": {
