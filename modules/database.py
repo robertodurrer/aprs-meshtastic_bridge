@@ -234,7 +234,11 @@ class Database:
         self.conn.commit()
 
     def list_messages(self, limit: int = 100) -> list:
-        rows = self.conn.execute("""
-            SELECT * FROM messages ORDER BY ts DESC LIMIT ?
-        """, (limit,)).fetchall()
-        return [dict(r) for r in rows]
+        try:
+            rows = self.conn.execute("""
+                SELECT * FROM messages ORDER BY ts DESC LIMIT ?
+            """, (limit,)).fetchall()
+            return [dict(r) for r in rows]
+        except Exception as e:
+            log.error(f"Erro ao listar mensagens: {e}")
+            return []

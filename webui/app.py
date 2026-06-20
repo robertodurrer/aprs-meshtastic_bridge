@@ -64,41 +64,65 @@ class OperatorUpdate(BaseModel):
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
     """Dashboard principal."""
-    operators = db.list_operators()
-    messages = db.list_messages(limit=20)
-    
-    stats = {
-        "total_operators": len(operators),
-        "active_operators": len([op for op in operators if op["active"]]),
-        "total_messages": len(messages),
-        "pending_messages": len([msg for msg in messages if msg["status"] == "pending"]),
-    }
-    
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
-        "stats": stats,
-        "operators": operators[:10],  # Últimos 10
-        "messages": messages[:10],    # Últimas 10
-        "config": cfg
-    })
+    try:
+        operators = db.list_operators()
+        messages = db.list_messages(limit=20)
+        
+        stats = {
+            "total_operators": len(operators),
+            "active_operators": len([op for op in operators if op.get("active", False)]),
+            "total_messages": len(messages),
+            "pending_messages": len([msg for msg in messages if msg.get("status") == "pending"]),
+        }
+        
+        return templates.TemplateResponse("dashboard.html", {
+            "request": request,
+            "stats": stats,
+            "operators": operators[:10],  # Últimos 10
+            "messages": messages[:10],    # Últimas 10
+            "config": cfg
+        })
+    except Exception as e:
+        log.error(f"Erro no dashboard: {e}")
+        return templates.TemplateResponse("dashboard.html", {
+            "request": request,
+            "stats": {"total_operators": 0, "active_operators": 0, "total_messages": 0, "pending_messages": 0},
+            "operators": [],
+            "messages": [],
+            "config": cfg
+        })
 
 @app.get("/operators", response_class=HTMLResponse)
 async def operators_page(request: Request):
     """Página de gerenciamento de operadores."""
-    operators = db.list_operators(active_only=False)
-    return templates.TemplateResponse("operators.html", {
-        "request": request,
-        "operators": operators
-    })
+    try:
+        operators = db.list_operators(active_only=False)
+        return templates.TemplateResponse("operators.html", {
+            "request": request,
+            "operators": operators
+        })
+    except Exception as e:
+        log.error(f"Erro na página de operadores: {e}")
+        return templates.TemplateResponse("operators.html", {
+            "request": request,
+            "operators": []
+        })
 
 @app.get("/messages", response_class=HTMLResponse)
 async def messages_page(request: Request):
     """Página de mensagens."""
-    messages = db.list_messages(limit=100)
-    return templates.TemplateResponse("messages.html", {
-        "request": request,
-        "messages": messages
-    })
+    try:
+        messages = db.list_messages(limit=100)
+        return templates.TemplateResponse("messages.html", {
+            "request": request,
+            "messages": messages
+        })
+    except Exception as e:
+        log.error(f"Erro na página de mensagens: {e}")
+        return templates.TemplateResponse("messages.html", {
+            "request": request,
+            "messages": []
+        })
 
 @app.get("/config", response_class=HTMLResponse)
 async def config_page(request: Request):
