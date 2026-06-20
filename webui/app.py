@@ -88,7 +88,8 @@ async def dashboard(request: Request):
             "pending_messages": len([msg for msg in messages if msg.get("status") == "pending"]),
         }
         
-        return templates.TemplateResponse("dashboard.html", {
+        template_name = "dashboard.html"
+        return templates.TemplateResponse(template_name, {
             "request": request,
             "stats": stats,
             "operators": operators[:10],  # Últimos 10
@@ -112,7 +113,8 @@ async def operators_page(request: Request):
         operators = db.list_operators(active_only=False)
         # Convert to plain dicts to avoid Jinja2 caching issues
         operators = [dict(op) for op in operators] if operators else []
-        return templates.TemplateResponse("operators.html", {
+        template_name = "operators.html"
+        return templates.TemplateResponse(template_name, {
             "request": request,
             "operators": operators
         })
@@ -130,7 +132,8 @@ async def messages_page(request: Request):
         messages = db.list_messages(limit=100)
         # Convert to plain dicts to avoid Jinja2 caching issues
         messages = [dict(msg) for msg in messages] if messages else []
-        return templates.TemplateResponse("messages.html", {
+        template_name = "messages.html"
+        return templates.TemplateResponse(template_name, {
             "request": request,
             "messages": messages
         })
@@ -144,7 +147,8 @@ async def messages_page(request: Request):
 @app.get("/config", response_class=HTMLResponse)
 async def config_page(request: Request):
     """Página de configuração."""
-    return templates.TemplateResponse("config.html", {
+    template_name = "config.html"
+    return templates.TemplateResponse(template_name, {
         "request": request,
         "config": dict(cfg)
     })
