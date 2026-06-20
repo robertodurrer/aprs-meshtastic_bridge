@@ -19,6 +19,8 @@ from modules.aprs_is_connection import APRSISConnection
 from modules.position_handler import PositionHandler
 from modules.message_router import MessageRouter
 from modules.aprs_format import parse_aprs_message
+import subprocess
+import threading
 
 try:
     cfg = load_config()
@@ -64,7 +66,19 @@ def shutdown(sig=None, frame=None):
     if sig is not None:
         sys.exit(0)
 
+def run_webui():
+    """Start the web UI in a separate process."""
+    webui_path = Path(__file__).parent / "webui" / "app.py"
+    cmd = ["python", str(webui_path)]
+    subprocess.run(cmd)
+
 def main():
+    # Start web UI if enabled in config
+    if cfg.get("webui", {}).get("enabled", False):
+        webui_thread = threading.Thread(target=run_webui, daemon=True)
+        webui_thread.start()
+        log.info(f"Web UI iniciando em http://{cfg['webui']['host']}:{cfg['webui']['port']}")
+    
     log.info("═══════════════════════════════════════")
     log.info("  Mesh↔APRS Gateway  —  iniciando")
     log.info(f"  Callsign: {cfg['gateway']['callsign']}")
