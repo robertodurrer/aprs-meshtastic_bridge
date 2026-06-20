@@ -133,7 +133,10 @@ class APRSISConnection:
                     if line and not line.startswith("#"):
                         log.debug(f"RX ← APRS-IS: {line}")
                         if self._on_packet:
-                            self._on_packet(line)
+                            try:
+                                self._on_packet(line)
+                            except Exception as e:
+                                log.error(f"Erro no callback de pacote: {e}")
             except socket.timeout:
                 continue
             except Exception as e:

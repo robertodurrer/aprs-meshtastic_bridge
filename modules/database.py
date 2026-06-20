@@ -108,8 +108,8 @@ class Database:
         if not callsign or not isinstance(callsign, str):
             log.error("Callsign inválido")
             return False
-        if not isinstance(passcode, int) or passcode < 0:
-            log.error("Passcode inválido")
+        if not isinstance(passcode, int):
+            log.error("Passcode deve ser um número inteiro")
             return False
             
         try:

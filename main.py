@@ -7,6 +7,7 @@ import sys
 import time
 import signal
 import traceback
+import atexit
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -19,10 +20,9 @@ from modules.position_handler import PositionHandler
 from modules.message_router import MessageRouter
 from modules.aprs_format import parse_aprs_message
 
-log = get_logger("gateway")
-
 try:
     cfg = load_config()
+    log = get_logger("gateway", cfg)
 except ConfigError as e:
     print(f"ERRO DE CONFIGURAÇÃO: {e}", file=sys.stderr)
     sys.exit(1)
@@ -53,11 +53,16 @@ def on_aprs_is_packet(raw_line: str):
         log.info(f"MSG APRS→Mesh recebida (etapa 6): "
                  f"{parsed['src']} → {parsed['dst']}: {parsed['body'][:50]}")
 
-def shutdown(sig, frame):
+def shutdown(sig=None, frame=None):
     log.info("Encerrando gateway...")
-    mesh.stop()
-    aprs_is.stop()
-    sys.exit(0)
+    try:
+        mesh.stop()
+        aprs_is.stop()
+        log.info("Gateway encerrado com sucesso")
+    except Exception as e:
+        log.error(f"Erro durante encerramento: {e}")
+    if sig is not None:
+        sys.exit(0)
 
 def main():
     log.info("═══════════════════════════════════════")
@@ -65,10 +70,16 @@ def main():
     log.info(f"  Callsign: {cfg['gateway']['callsign']}")
     log.info("═══════════════════════════════════════")
 
+    # Registra cleanup automático
+    atexit.register(shutdown)
     signal.signal(signal.SIGINT,  shutdown)
     signal.signal(signal.SIGTERM, shutdown)
 
     try:
+        # Verifica se o banco está acessível
+        db.list_operators()
+        log.info("Banco de dados OK")
+
         aprs_is.on_packet(on_aprs_is_packet)
         aprs_is.start()
         time.sleep(2)
@@ -83,11 +94,25 @@ def main():
         for op in ops:
             log.info(f"  {op['callsign']} → node {op['node_id']}")
 
+        # Loop principal com tratamento de exceções
+        heartbeat_counter = 0
         while True:
-            time.sleep(30)
-            status = "online" if aprs_is.connected else "OFFLINE"
-            log.info(f"Heartbeat — APRS-IS: {status}")
-            
+            try:
+                time.sleep(30)
+                heartbeat_counter += 1
+                status = "online" if aprs_is.connected else "OFFLINE"
+                log.info(f"Heartbeat #{heartbeat_counter} — APRS-IS: {status}")
+                
+                # Verifica saúde do sistema a cada 5 minutos
+                if heartbeat_counter % 10 == 0:
+                    mesh_status = "connected" if mesh.iface else "disconnected"
+                    log.info(f"Status: APRS-IS={status}, Meshtastic={mesh_status}")
+                    
+            except KeyboardInterrupt:
+                break
+            except Exception as e:
+                log.error(f"Erro no heartbeat: {e}")
+                
     except Exception as e:
         log.error(f"Erro fatal no loop principal: {e}")
         traceback.print_exc()

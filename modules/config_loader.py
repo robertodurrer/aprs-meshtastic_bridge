@@ -30,9 +30,9 @@ def _validate_config(cfg: Dict[str, Any]) -> None:
     if not (3 <= len(callsign.split('-')[0]) <= 6):
         raise ConfigError(f"Callsign inválido: {callsign}")
     
-    # Valida passcode
-    if not isinstance(gw["passcode"], int) or gw["passcode"] < 0:
-        raise ConfigError("Passcode deve ser um número inteiro positivo")
+    # Valida passcode (pode ser -1 para teste)
+    if not isinstance(gw["passcode"], int):
+        raise ConfigError("Passcode deve ser um número inteiro")
 
 def load() -> dict:
     """Carrega e valida a configuração do gateway."""
