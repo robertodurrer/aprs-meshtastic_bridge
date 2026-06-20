@@ -68,6 +68,10 @@ async def dashboard(request: Request):
         operators = db.list_operators()
         messages = db.list_messages(limit=20)
         
+        # Convert to plain dicts to avoid Jinja2 caching issues
+        operators = [dict(op) for op in operators]
+        messages = [dict(msg) for msg in messages]
+        
         stats = {
             "total_operators": len(operators),
             "active_operators": len([op for op in operators if op.get("active", False)]),
@@ -97,6 +101,8 @@ async def operators_page(request: Request):
     """Página de gerenciamento de operadores."""
     try:
         operators = db.list_operators(active_only=False)
+        # Convert to plain dicts to avoid Jinja2 caching issues
+        operators = [dict(op) for op in operators]
         return templates.TemplateResponse("operators.html", {
             "request": request,
             "operators": operators
@@ -113,6 +119,8 @@ async def messages_page(request: Request):
     """Página de mensagens."""
     try:
         messages = db.list_messages(limit=100)
+        # Convert to plain dicts to avoid Jinja2 caching issues
+        messages = [dict(msg) for msg in messages]
         return templates.TemplateResponse("messages.html", {
             "request": request,
             "messages": messages
@@ -137,7 +145,8 @@ async def config_page(request: Request):
 async def get_operators() -> List[Dict[str, Any]]:
     """Lista todos os operadores."""
     try:
-        return db.list_operators(active_only=False)
+        operators = db.list_operators(active_only=False)
+        return [dict(op) for op in operators]
     except Exception as e:
         log.error(f"Erro ao listar operadores via API: {e}")
         raise HTTPException(status_code=500, detail="Erro interno do servidor")
@@ -196,7 +205,8 @@ async def delete_operator(callsign: str) -> Dict[str, Any]:
 async def get_messages(limit: int = 100) -> List[Dict[str, Any]]:
     """Lista mensagens."""
     try:
-        return db.list_messages(limit=limit)
+        messages = db.list_messages(limit=limit)
+        return [dict(msg) for msg in messages]
     except Exception as e:
         log.error(f"Erro ao listar mensagens via API: {e}")
         raise HTTPException(status_code=500, detail="Erro interno do servidor")
@@ -207,6 +217,10 @@ async def get_stats() -> Dict[str, Any]:
     try:
         operators = db.list_operators(active_only=False)
         messages = db.list_messages(limit=1000)
+        
+        # Convert to plain dicts to avoid issues
+        operators = [dict(op) for op in operators]
+        messages = [dict(msg) for msg in messages]
         
         return {
             "operators": {
