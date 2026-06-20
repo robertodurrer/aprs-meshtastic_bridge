@@ -97,7 +97,7 @@ async def dashboard(request: Request):
             "stats": stats,
             "operators": operators[:10],  # Últimos 10
             "messages": messages[:10],    # Últimas 10
-            "config": dict(cfg)
+            "config": cfg
         })
     except Exception as e:
         log.error(f"Erro no dashboard: {e}")
@@ -106,7 +106,7 @@ async def dashboard(request: Request):
             "stats": {"total_operators": 0, "active_operators": 0, "total_messages": 0, "pending_messages": 0},
             "operators": [],
             "messages": [],
-            "config": dict(cfg)
+            "config": cfg
         })
 
 @app.get("/operators", response_class=HTMLResponse)
@@ -153,7 +153,7 @@ async def config_page(request: Request):
     template_name = "config.html"
     return templates.TemplateResponse(template_name, {
         "request": request,
-        "config": dict(cfg)
+        "config": cfg  # Already a dict from config_loader
     })
 
 # API REST
