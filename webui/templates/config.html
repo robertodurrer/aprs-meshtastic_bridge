@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}Configuração - Mesh↔APRS Gateway{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1><i class="bi bi-gear"></i> Configuração</h1>
+        <hr>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-broadcast"></i> Gateway</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <th>Callsign:</th>
+                        <td><strong>{{ config.gateway.callsign }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th>Passcode:</th>
+                        <td>{{ config.gateway.passcode }}</td>
+                    </tr>
+                    <tr>
+                        <th>APRS-IS Host:</th>
+                        <td>{{ config.gateway.aprs_is_host }}</td>
+                    </tr>
+                    <tr>
+                        <th>APRS-IS Port:</th>
+                        <td>{{ config.gateway.aprs_is_port }}</td>
+                    </tr>
+                    <tr>
+                        <th>Filter:</th>
+                        <td><code>{{ config.gateway.aprs_is_filter }}</code></td>
+                    </tr>
+                    <tr>
+                        <th>Ícone:</th>
+                        <td><code>{{ config.gateway.icon }}</code></td>
+                    </tr>
+                    <tr>
+                        <th>Comentário:</th>
+                        <td>{{ config.gateway.comment }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-wifi"></i> Meshtastic</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <th>Conexão:</th>
+                        <td><span class="badge bg-info">{{ config.meshtastic.connection.upper() }}</span></td>
+                    </tr>
+                    <tr>
+                        <th>Porta Serial:</th>
+                        <td>{{ config.meshtastic.serial_port }}</td>
+                    </tr>
+                    {% if config.meshtastic.ble_address %}
+                    <tr>
+                        <th>Endereço BLE:</th>
+                        <td><code>{{ config.meshtastic.ble_address }}</code></td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <th>Canal APRS:</th>
+                        <td>{{ config.meshtastic.aprs_channel_index }}</td>
+                    </tr>
+                    <tr>
+                        <th>Nome do Canal:</th>
+                        <td>{{ config.meshtastic.aprs_channel_name }}</td>
+                    </tr>
+                    <tr>
+                        <th>Reconexão:</th>
+                        <td>{{ config.meshtastic.reconnect_interval_s }}s</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-database"></i> Banco de Dados</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <th>Caminho:</th>
+                        <td><code>{{ config.database.path }}</code></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-globe"></i> Web UI</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <th>Host:</th>
+                        <td>{{ config.webui.host }}</td>
+                    </tr>
+                    <tr>
+                        <th>Porta:</th>
+                        <td>{{ config.webui.port }}</td>
+                    </tr>
+                    <tr>
+                        <th>Status:</th>
+                        <td>
+                            {% if config.webui.enabled %}
+                            <span class="badge bg-success">Habilitado</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Desabilitado</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-file-text"></i> Logging</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tr>
+                                <th>Nível:</th>
+                                <td><span class="badge bg-info">{{ config.logging.level }}</span></td>
+                            </tr>
+                            <tr>
+                                <th>Arquivo:</th>
+                                <td><code>{{ config.logging.file }}</code></td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-sm">
+                            <tr>
+                                <th>Tamanho Máx:</th>
+                                <td>{{ config.logging.max_size_mb }} MB</td>
+                            </tr>
+                            <tr>
+                                <th>Backups:</th>
+                                <td>{{ config.logging.backup_count }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -46,10 +46,14 @@ class APRSISConnection:
             banner = sock.recv(512).decode("ascii", errors="ignore")
             log.debug(f"Banner: {banner.strip()}")
 
+            # Validação básica do banner
+            if not banner or "aprsc" not in banner.lower():
+                log.warning(f"Banner suspeito do servidor: {banner.strip()}")
+
             # Login
             login = (f"user {self.callsign} pass {self.passcode} "
                      f"vers MeshAPRS-GW 0.1 filter {self.filter}\r\n")
-            sock.send(login.encode())
+            sock.send(login.encode("ascii", errors="replace"))
 
             # Confirma login
             resp = sock.recv(512).decode("ascii", errors="ignore")
@@ -59,6 +63,9 @@ class APRSISConnection:
                 log.error(f"APRS-IS rejeitou login: {resp.strip()}")
                 sock.close()
                 return False
+            
+            if "logresp" not in resp.lower():
+                log.warning(f"Resposta de login inesperada: {resp.strip()}")
 
             with self._lock:
                 self._sock = sock
@@ -66,6 +73,15 @@ class APRSISConnection:
             log.info(f"APRS-IS conectado como {self.callsign}")
             return True
 
+        except socket.timeout:
+            log.error("Timeout ao conectar ao APRS-IS")
+            return False
+        except socket.gaierror as e:
+            log.error(f"Erro de DNS ao conectar ao APRS-IS: {e}")
+            return False
+        except ConnectionRefusedError:
+            log.error("Conexão recusada pelo servidor APRS-IS")
+            return False
         except Exception as e:
             log.error(f"Falha ao conectar APRS-IS: {e}")
             return False
@@ -117,7 +133,10 @@ class APRSISConnection:
                     if line and not line.startswith("#"):
                         log.debug(f"RX ← APRS-IS: {line}")
                         if self._on_packet:
-                            self._on_packet(line)
+                            try:
+                                self._on_packet(line)
+                            except Exception as e:
+                                log.error(f"Erro no callback de pacote: {e}")
             except socket.timeout:
                 continue
             except Exception as e:

@@ -25,10 +25,20 @@ class Database:
     @property
     def conn(self) -> sqlite3.Connection:
         if not hasattr(self._local, "conn") or self._local.conn is None:
-            self._local.conn = sqlite3.connect(self.path, check_same_thread=False)
-            self._local.conn.row_factory = sqlite3.Row
-            self._local.conn.execute("PRAGMA journal_mode=WAL")
-            self._local.conn.execute("PRAGMA foreign_keys=ON")
+            try:
+                self._local.conn = sqlite3.connect(
+                    self.path, 
+                    check_same_thread=False,
+                    timeout=30.0
+                )
+                self._local.conn.row_factory = sqlite3.Row
+                self._local.conn.execute("PRAGMA journal_mode=WAL")
+                self._local.conn.execute("PRAGMA foreign_keys=ON")
+                self._local.conn.execute("PRAGMA synchronous=NORMAL")
+                self._local.conn.execute("PRAGMA cache_size=10000")
+            except sqlite3.Error as e:
+                log.error(f"Erro ao conectar ao banco de dados: {e}")
+                raise
         return self._local.conn
 
     def _init_schema(self):
@@ -94,32 +104,43 @@ class Database:
     def add_operator(self, callsign: str, ssid: str, passcode: int,
                      node_id: str = None, long_name: str = "",
                      short_name: str = "", **kwargs) -> bool:
+        # Validação de entrada
+        if not callsign or not isinstance(callsign, str):
+            log.error("Callsign inválido")
+            return False
+        if not isinstance(passcode, int):
+            log.error("Passcode deve ser um número inteiro")
+            return False
+            
         try:
-            self.conn.execute("""
-                INSERT INTO operators
-                    (callsign, ssid, passcode, node_id, long_name, short_name,
-                     aprs_icon, aprs_comment, channel_index,
-                     pub_position, rx_aprs, tx_aprs, rf_local, active)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1)
-            """, (
-                callsign.upper(), ssid.upper(), passcode, node_id,
-                long_name, short_name,
-                kwargs.get("aprs_icon", "/>"),
-                kwargs.get("aprs_comment", "via Mesh/APRS-GW"),
-                kwargs.get("channel_index", 1),
-                int(kwargs.get("pub_position", True)),
-                int(kwargs.get("rx_aprs", True)),
-                int(kwargs.get("tx_aprs", True)),
-                int(kwargs.get("rf_local", False)),
-            ))
-            self.conn.commit()
+            with self.conn:  # Transação automática
+                self.conn.execute("""
+                    INSERT INTO operators
+                        (callsign, ssid, passcode, node_id, long_name, short_name,
+                         aprs_icon, aprs_comment, channel_index,
+                         pub_position, rx_aprs, tx_aprs, rf_local, active)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1)
+                """, (
+                    callsign.upper(), ssid.upper(), passcode, node_id,
+                    long_name[:50], short_name[:10],  # Limita tamanho
+                    kwargs.get("aprs_icon", "/>")[:2],
+                    kwargs.get("aprs_comment", "via Mesh/APRS-GW")[:100],
+                    kwargs.get("channel_index", 1),
+                    int(kwargs.get("pub_position", True)),
+                    int(kwargs.get("rx_aprs", True)),
+                    int(kwargs.get("tx_aprs", True)),
+                    int(kwargs.get("rf_local", False)),
+                ))
             log.info(f"Operador cadastrado: {callsign} (node={node_id})")
             return True
-        except sqlite3.IntegrityError:
-            log.warning(f"Operador já existe: {callsign}")
+        except sqlite3.IntegrityError as e:
+            log.warning(f"Operador já existe: {callsign} - {e}")
+            return False
+        except sqlite3.Error as e:
+            log.error(f"Erro de banco ao cadastrar operador: {e}")
             return False
         except Exception as e:
-            log.error(f"Erro ao cadastrar operador: {e}")
+            log.error(f"Erro inesperado ao cadastrar operador: {e}")
             return False
 
     def get_operator_by_callsign(self, callsign: str) -> Optional[dict]:
@@ -137,36 +158,52 @@ class Database:
         return dict(row) if row else None
 
     def list_operators(self, active_only: bool = True) -> list:
-        q = "SELECT * FROM operators"
-        if active_only:
-            q += " WHERE active=1"
-        q += " ORDER BY callsign"
-        rows = self.conn.execute(q).fetchall()
-        return [dict(r) for r in rows]
+        try:
+            q = "SELECT * FROM operators"
+            if active_only:
+                q += " WHERE active=1"
+            q += " ORDER BY callsign"
+            rows = self.conn.execute(q).fetchall()
+            return [dict(r) for r in rows]
+        except Exception as e:
+            log.error(f"Erro ao listar operadores: {e}")
+            return []
 
     def update_operator(self, callsign: str, **fields) -> bool:
-        allowed = {"node_id","long_name","short_name","aprs_icon",
-                   "aprs_comment","pub_position","rx_aprs","tx_aprs",
-                   "rf_local","active","last_seen"}
-        updates = {k: v for k, v in fields.items() if k in allowed}
-        if not updates:
+        try:
+            allowed = {"node_id","long_name","short_name","aprs_icon",
+                       "aprs_comment","pub_position","rx_aprs","tx_aprs",
+                       "rf_local","active","last_seen"}
+            updates = {k: v for k, v in fields.items() if k in allowed}
+            if not updates:
+                return False
+            set_clause = ", ".join(f"{k}=?" for k in updates)
+            result = self.conn.execute(
+                f"UPDATE operators SET {set_clause} WHERE callsign=?",
+                (*updates.values(), callsign.upper())
+            )
+            self.conn.commit()
+            return result.rowcount > 0
+        except Exception as e:
+            log.error(f"Erro ao atualizar operador {callsign}: {e}")
             return False
-        set_clause = ", ".join(f"{k}=?" for k in updates)
-        self.conn.execute(
-            f"UPDATE operators SET {set_clause} WHERE callsign=?",
-            (*updates.values(), callsign.upper())
-        )
-        self.conn.commit()
-        return True
 
     def remove_operator(self, callsign: str) -> bool:
-        self.conn.execute(
-            "UPDATE operators SET active=0 WHERE callsign=?",
-            (callsign.upper(),)
-        )
-        self.conn.commit()
-        log.info(f"Operador desativado: {callsign}")
-        return True
+        try:
+            result = self.conn.execute(
+                "UPDATE operators SET active=0 WHERE callsign=?",
+                (callsign.upper(),)
+            )
+            self.conn.commit()
+            if result.rowcount > 0:
+                log.info(f"Operador desativado: {callsign}")
+                return True
+            else:
+                log.warning(f"Operador não encontrado: {callsign}")
+                return False
+        except Exception as e:
+            log.error(f"Erro ao remover operador {callsign}: {e}")
+            return False
 
     def touch_operator(self, callsign: str):
         self.conn.execute(
@@ -204,16 +241,20 @@ class Database:
         self.conn.commit()
         return cur.lastrowid
 
-    def update_message_status(self, msg_id: int, status: str,
+    def update_message_status(self, row_id: int, status: str,
                                ts_ack: str = None):
         self.conn.execute("""
             UPDATE messages SET status=?, ts_ack=?
             WHERE id=?
-        """, (status, ts_ack or datetime.utcnow().isoformat(), msg_id))
+        """, (status, ts_ack or datetime.utcnow().isoformat(), row_id))
         self.conn.commit()
 
     def list_messages(self, limit: int = 100) -> list:
-        rows = self.conn.execute("""
-            SELECT * FROM messages ORDER BY ts DESC LIMIT ?
-        """, (limit,)).fetchall()
-        return [dict(r) for r in rows]
+        try:
+            rows = self.conn.execute("""
+                SELECT * FROM messages ORDER BY ts DESC LIMIT ?
+            """, (limit,)).fetchall()
+            return [dict(r) for r in rows]
+        except Exception as e:
+            log.error(f"Erro ao listar mensagens: {e}")
+            return []

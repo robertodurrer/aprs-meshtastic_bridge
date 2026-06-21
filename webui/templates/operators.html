@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}Operadores - Mesh↔APRS Gateway{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1><i class="bi bi-people"></i> Operadores</h1>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addOperatorModal">
+                <i class="bi bi-plus"></i> Adicionar Operador
+            </button>
+        </div>
+        <hr>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                {% if operators %}
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Callsign</th>
+                                <th>Node ID</th>
+                                <th>Nome</th>
+                                <th>Ícone APRS</th>
+                                <th>TX APRS</th>
+                                <th>RX APRS</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for op in operators %}
+                            <tr>
+                                <td><strong>{{ op.callsign }}</strong></td>
+                                <td><code>{{ op.node_id or '-' }}</code></td>
+                                <td>{{ op.long_name or '-' }}</td>
+                                <td><code>{{ op.aprs_icon }}</code></td>
+                                <td>
+                                    {% if op.tx_aprs %}
+                                    <i class="bi bi-check-circle text-success"></i>
+                                    {% else %}
+                                    <i class="bi bi-x-circle text-danger"></i>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if op.rx_aprs %}
+                                    <i class="bi bi-check-circle text-success"></i>
+                                    {% else %}
+                                    <i class="bi bi-x-circle text-danger"></i>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if op.active %}
+                                    <span class="badge bg-success">Ativo</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Inativo</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="editOperator('{{ op.callsign }}')">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteOperator('{{ op.callsign }}')">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-people fs-1 text-muted"></i>
+                    <h4 class="text-muted">Nenhum operador cadastrado</h4>
+                    <p class="text-muted">Clique em "Adicionar Operador" para começar.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Adicionar Operador -->
+<div class="modal fade" id="addOperatorModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Adicionar Operador</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addOperatorForm">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <label class="form-label">Callsign *</label>
+                            <input type="text" class="form-control" name="callsign" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">SSID</label>
+                            <input type="text" class="form-control" name="ssid" value="">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Passcode *</label>
+                        <input type="number" class="form-control" name="passcode" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Node ID</label>
+                        <input type="text" class="form-control" name="node_id" placeholder="!12345678">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-8">
+                            <label class="form-label">Nome Longo</label>
+                            <input type="text" class="form-control" name="long_name">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Nome Curto</label>
+                            <input type="text" class="form-control" name="short_name" maxlength="4">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">Ícone APRS</label>
+                            <input type="text" class="form-control" name="aprs_icon" value="/>" maxlength="2">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Canal</label>
+                            <input type="number" class="form-control" name="channel_index" value="1" min="0" max="7">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Comentário APRS</label>
+                        <input type="text" class="form-control" name="aprs_comment" value="via Mesh/APRS-GW">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="pub_position" checked>
+                                <label class="form-check-label">Publicar Posição</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="rx_aprs" checked>
+                                <label class="form-check-label">RX APRS</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="tx_aprs" checked>
+                                <label class="form-check-label">TX APRS</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="rf_local">
+                                <label class="form-check-label">RF Local</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Adicionar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('addOperatorForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData.entries());
+    
+    // Converte checkboxes
+    data.pub_position = formData.has('pub_position');
+    data.rx_aprs = formData.has('rx_aprs');
+    data.tx_aprs = formData.has('tx_aprs');
+    data.rf_local = formData.has('rf_local');
+    
+    // Converte números
+    data.passcode = parseInt(data.passcode);
+    data.channel_index = parseInt(data.channel_index);
+    
+    try {
+        const response = await fetch('/api/operators', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+            location.reload();
+        } else {
+            const error = await response.json();
+            alert('Erro: ' + error.detail);
+        }
+    } catch (error) {
+        alert('Erro de conexão: ' + error.message);
+    }
+});
+
+async function deleteOperator(callsign) {
+    if (!confirm(`Tem certeza que deseja remover o operador ${callsign}?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/operators/${callsign}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            location.reload();
+        } else {
+            const error = await response.json();
+            alert('Erro: ' + error.detail);
+        }
+    } catch (error) {
+        alert('Erro de conexão: ' + error.message);
+    })
+}
+return MappingProxyType(config_dict)
+</script>
+{% endblock %}

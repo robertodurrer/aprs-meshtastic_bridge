@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Mesh↔APRS Gateway{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1><i class="bi bi-house"></i> Dashboard</h1>
+        <hr>
+    </div>
+</div>
+
+<!-- Estatísticas -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4>{{ stats.total_operators }}</h4>
+                        <p class="mb-0">Operadores</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-people fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4>{{ stats.active_operators }}</h4>
+                        <p class="mb-0">Ativos</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-check-circle fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4>{{ stats.total_messages }}</h4>
+                        <p class="mb-0">Mensagens</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-chat fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4>{{ stats.pending_messages }}</h4>
+                        <p class="mb-0">Pendentes</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-clock fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Operadores Recentes -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-people"></i> Operadores Recentes</h5>
+                <a href="/operators" class="btn btn-sm btn-outline-primary">Ver Todos</a>
+            </div>
+            <div class="card-body">
+                {% if operators %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Callsign</th>
+                                <th>Node ID</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for op in operators %}
+                            <tr>
+                                <td><strong>{{ op.callsign }}</strong></td>
+                                <td><code>{{ op.node_id or '-' }}</code></td>
+                                <td>
+                                    {% if op.active %}
+                                    <span class="badge bg-success">Ativo</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Inativo</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">Nenhum operador cadastrado.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Mensagens Recentes -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-chat"></i> Mensagens Recentes</h5>
+                <a href="/messages" class="btn btn-sm btn-outline-primary">Ver Todas</a>
+            </div>
+            <div class="card-body">
+                {% if messages %}
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>De</th>
+                                <th>Para</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for msg in messages %}
+                            <tr>
+                                <td><strong>{{ msg.src }}</strong></td>
+                                <td>{{ msg.dst }}</td>
+                                <td>
+                                    {% if msg.status == 'delivered' %}
+                                    <span class="badge bg-success">Entregue</span>
+                                    {% elif msg.status == 'pending' %}
+                                    <span class="badge bg-warning">Pendente</span>
+                                    {% elif msg.status == 'failed' %}
+                                    <span class="badge bg-danger">Falhou</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{{ msg.status }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">Nenhuma mensagem encontrada.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

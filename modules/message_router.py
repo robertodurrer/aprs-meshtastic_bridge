@@ -49,12 +49,22 @@ class MessageRouter:
         Extrai (callsign_destino, corpo) de uma string de mensagem.
         Retorna None se não conseguir identificar um callsign válido.
         """
-        m = CALLSIGN_RE.match(text.strip())
+        if not text or not isinstance(text, str):
+            return None
+            
+        text = text.strip()
+        if len(text) < 5:  # Mínimo: "XX: Y"
+            return None
+            
+        m = CALLSIGN_RE.match(text)
         if not m:
             return None
         dst, body = m.group(1).upper(), m.group(2).strip()
-        if not body:
+        if not body or len(body) < 1:
             return None
+        if len(body) > 67:  # Limite APRS para mensagens
+            log.warning(f"Corpo da mensagem truncado de {len(body)} para 67 chars")
+            body = body[:67]
         return dst, body
 
     def handle_mesh_message(self, payload: dict):
@@ -62,8 +72,17 @@ class MessageRouter:
         Recebe payload de mensagem do canal APRS do Meshtastic,
         identifica destino e envia para o APRS-IS.
         """
-        node_id = payload["from_id"]
-        text    = payload["text"]
+        # Validação do payload
+        if not isinstance(payload, dict):
+            log.error("Payload inválido recebido")
+            return
+            
+        node_id = payload.get("from_id")
+        text = payload.get("text")
+        
+        if not node_id or not text:
+            log.warning("Payload incompleto: faltam from_id ou text")
+            return
 
         op = self.db.get_operator_by_node(node_id)
         if not op:
@@ -83,14 +102,18 @@ class MessageRouter:
         msg_id = self._next_msg_id()
 
         # Registra no banco como pending
-        row_id = self.db.save_message(
-            direction = "mesh_to_aprs",
-            src       = op["callsign"],
-            dst       = dst_call,
-            body      = body,
-            msg_id    = msg_id,
-            status    = "pending"
-        )
+        try:
+            row_id = self.db.save_message(
+                direction = "mesh_to_aprs",
+                src       = op["callsign"],
+                dst       = dst_call,
+                body      = body,
+                msg_id    = msg_id,
+                status    = "pending"
+            )
+        except Exception as e:
+            log.error(f"Erro ao salvar mensagem no banco: {e}")
+            return
 
         packet = format_message(op["callsign"], dst_call, body, msg_id)
 
@@ -107,6 +130,7 @@ class MessageRouter:
                     "row_id": row_id, "retries": 0,
                     "dst": dst_call, "packet": packet,
                     "ts": time.time(), "src": op["callsign"],
+                    "node_id": node_id,
                     "body": body,
                 }
             self.db.touch_operator(op["callsign"])
@@ -133,7 +157,7 @@ class MessageRouter:
                 return
             entry["retries"] += 1
 
-        if entry["retries"] > MAX_RETRIES:
+        if entry["retries"] >= MAX_RETRIES:
             log.warning(f"Mensagem {msg_id} ({entry['src']}→{entry['dst']}) "
                        f"sem ACK após {MAX_RETRIES} tentativas — FALHA")
             self.db.update_message_status(entry["row_id"], "failed")
@@ -157,10 +181,10 @@ class MessageRouter:
                      f"({entry['src']}→{entry['dst']}) — ENTREGUE")
 
             # Notifica o nó Meshtastic de origem (se a interface existir)
-            if self.mesh:
+            if self.mesh and entry.get("node_id"):
                 self.mesh.send_text(
                     f"[APRS] entregue a {entry['dst']}",
-                    destination_id="^all",
+                    destination_id=entry["node_id"],
                     channel_index=None  # usa o canal APRS padrão
                 )
         else:

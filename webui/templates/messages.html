@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}Mensagens - Mesh↔APRS Gateway{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1><i class="bi bi-chat"></i> Mensagens</h1>
+        <hr>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                {% if messages %}
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Direção</th>
+                                <th>De</th>
+                                <th>Para</th>
+                                <th>Mensagem</th>
+                                <th>Status</th>
+                                <th>ID</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for msg in messages %}
+                            <tr>
+                                <td><small>{{ msg.ts }}</small></td>
+                                <td>
+                                    {% if msg.direction == 'mesh_to_aprs' %}
+                                    <span class="badge bg-primary">Mesh→APRS</span>
+                                    {% elif msg.direction == 'aprs_to_mesh' %}
+                                    <span class="badge bg-info">APRS→Mesh</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{{ msg.direction }}</span>
+                                    {% endif %}
+                                </td>
+                                <td><strong>{{ msg.src }}</strong></td>
+                                <td><strong>{{ msg.dst }}</strong></td>
+                                <td>{{ msg.body|truncate(50) }}</td>
+                                <td>
+                                    {% if msg.status == 'delivered' %}
+                                    <span class="badge bg-success">Entregue</span>
+                                    {% elif msg.status == 'pending' %}
+                                    <span class="badge bg-warning">Pendente</span>
+                                    {% elif msg.status == 'failed' %}
+                                    <span class="badge bg-danger">Falhou</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">{{ msg.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td><code>{{ msg.msg_id or '-' }}</code></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-chat fs-1 text-muted"></i>
+                    <h4 class="text-muted">Nenhuma mensagem encontrada</h4>
+                    <p class="text-muted">As mensagens aparecerão aqui quando o gateway estiver em operação.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

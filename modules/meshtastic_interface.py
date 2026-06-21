@@ -23,6 +23,7 @@ class MeshtasticInterface:
         self.iface = None
         self._running = False
         self._lock = threading.Lock()
+        self._subscribed = False
         self._on_position = None
         self._on_message = None
         self._on_node_update = None
@@ -39,25 +40,48 @@ class MeshtasticInterface:
     def connect(self) -> bool:
         mode = self.cfg.get("connection", "serial")
         port = self.cfg.get("serial_port", "auto")
+        
+        # Cleanup previous connection
+        if self.iface:
+            try:
+                self.iface.close()
+            except Exception:
+                pass
+            self.iface = None
+        
         try:
             if mode == "serial":
                 kwargs = {} if port == "auto" else {"devPath": port}
                 self.iface = meshtastic.serial_interface.SerialInterface(**kwargs)
             elif mode == "ble":
                 addr = self.cfg.get("ble_address")
+                if not addr:
+                    log.error("Endereço BLE não configurado")
+                    return False
                 self.iface = meshtastic.ble_interface.BLEInterface(addr)
             else:
                 log.error(f"Modo de conexão desconhecido: {mode}")
                 return False
 
-            pub.subscribe(self._receive, "meshtastic.receive")
-            pub.subscribe(self._on_connect_cb, "meshtastic.connection.established")
-            pub.subscribe(self._on_disconnect_cb, "meshtastic.connection.lost")
+            # Aguarda estabilização da conexão
+            time.sleep(2)
+
+            if not self._subscribed:
+                pub.subscribe(self._receive, "meshtastic.receive")
+                pub.subscribe(self._on_connect_cb, "meshtastic.connection.established")
+                pub.subscribe(self._on_disconnect_cb, "meshtastic.connection.lost")
+                self._subscribed = True
 
             log.info(f"Conectado ao nó Meshtastic via {mode.upper()}")
             self._log_node_info()
             return True
 
+        except FileNotFoundError as e:
+            log.error(f"Dispositivo serial não encontrado: {e}")
+            return False
+        except PermissionError as e:
+            log.error(f"Sem permissão para acessar dispositivo: {e}")
+            return False
         except Exception as e:
             log.error(f"Falha ao conectar ao nó Meshtastic: {e}")
             return False
@@ -155,6 +179,19 @@ class MeshtasticInterface:
 
     def send_text(self, text: str, destination_id: str = "^all",
                   channel_index: int = None) -> bool:
+        if not self.iface:
+            log.error("Interface Meshtastic não conectada")
+            return False
+        
+        # Validação de entrada
+        if not text or len(text.strip()) == 0:
+            log.error("Texto da mensagem vazio")
+            return False
+        
+        if len(text) > 228:  # Limite do Meshtastic
+            log.warning(f"Mensagem truncada de {len(text)} para 228 chars")
+            text = text[:228]
+        
         ch = channel_index if channel_index is not None else self.aprs_channel
         try:
             self.iface.sendText(text, destinationId=destination_id, channelIndex=ch)

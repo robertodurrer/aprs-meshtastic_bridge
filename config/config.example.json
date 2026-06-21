@@ -1,7 +1,7 @@
 {
   "gateway": {
-    "callsign": "SEU-CALL-SSID",
-    "passcode": 0,
+    "callsign": "N0CALL",
+    "passcode": -1,
     "comment": "Mesh-APRS Gateway v0.1",
     "icon": "/-",
     "aprs_is_host": "rotate.aprs2.net",
@@ -11,21 +11,24 @@
   "meshtastic": {
     "connection": "serial",
     "serial_port": "auto",
+    "ble_address": null,
     "aprs_channel_index": 1,
     "aprs_channel_name": "APRS",
     "reconnect_interval_s": 30
   },
   "database": {
-    "path": "db/gateway.db"
+    "path": "data/gateway.db"
   },
   "webui": {
     "host": "0.0.0.0",
-    "port": 8080
+    "port": 8080,
+    "enabled": true
   },
   "logging": {
     "level": "INFO",
     "file": "logs/gateway.log",
-    "max_bytes": 5242880,
-    "backup_count": 3
+    "max_size_mb": 10,
+    "backup_count": 5,
+    "console": true
   }
 }
