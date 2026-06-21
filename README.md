@@ -60,13 +60,14 @@ Nós Meshtastic sem operador cadastrado são ignorados pela bridge — continuam
 - Publicação de posição Meshtastic → APRS-IS em formato APRS padrão
 - Envio de mensagens Meshtastic → APRS-IS com reconhecimento de destino por callsign, controle de ACK e retry automático (até 3 tentativas)
 - Notificação de entrega enviada de volta ao nó Meshtastic originador
+- **Recepção de mensagens APRS-IS → Meshtastic**: mensagens endereçadas ao gateway são entregues no nó do operador; ACK enviado de volta ao remetente APRS
+- Filtro APRS-IS automático com buddy filter (`g/CALLSIGN*`) para receber mensagens de qualquer origem, independente de distância
 - Interface web de gerenciamento (`/`) com dashboard, operadores, mensagens e configuração
 - Serviço systemd para operação 24/7 com reinício automático em caso de falha
 - Ferramentas de diagnóstico: detecção de porta serial, escuta de pacotes em tempo real, envio de mensagem de teste
 
 ## Em desenvolvimento / próximos passos
 
-- Mensagens APRS → Meshtastic (caminho de volta, ainda não implementado)
 - Possível bridge RF direta via TNC do iGate, para operação sem depender de internet
 
 ## Requisitos
