@@ -1,0 +1,17 @@
+[Unit]
+Description=Mesh-APRS Gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=roberto
+WorkingDirectory=/home/roberto/mesh_aprs_gw
+ExecStart=/home/roberto/mesh_aprs_gw/venv/bin/python main.py
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
