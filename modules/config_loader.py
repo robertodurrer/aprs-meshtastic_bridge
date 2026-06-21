@@ -25,8 +25,9 @@ def _validate_config(cfg: Dict[str, Any]) -> None:
         if field not in gw:
             raise ConfigError(f"Campo obrigatório 'gateway.{field}' não encontrado")
     
-    # Valida callsign
-    callsign = gw["callsign"].upper()
+    # Valida callsign e normaliza para maiúsculas no cfg
+    gw["callsign"] = gw["callsign"].upper()
+    callsign = gw["callsign"]
     if not (3 <= len(callsign.split('-')[0]) <= 6):
         raise ConfigError(f"Callsign inválido: {callsign}")
     

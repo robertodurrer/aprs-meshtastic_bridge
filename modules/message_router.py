@@ -130,6 +130,7 @@ class MessageRouter:
                     "row_id": row_id, "retries": 0,
                     "dst": dst_call, "packet": packet,
                     "ts": time.time(), "src": op["callsign"],
+                    "node_id": node_id,
                     "body": body,
                 }
             self.db.touch_operator(op["callsign"])
@@ -156,7 +157,7 @@ class MessageRouter:
                 return
             entry["retries"] += 1
 
-        if entry["retries"] > MAX_RETRIES:
+        if entry["retries"] >= MAX_RETRIES:
             log.warning(f"Mensagem {msg_id} ({entry['src']}→{entry['dst']}) "
                        f"sem ACK após {MAX_RETRIES} tentativas — FALHA")
             self.db.update_message_status(entry["row_id"], "failed")
@@ -180,10 +181,10 @@ class MessageRouter:
                      f"({entry['src']}→{entry['dst']}) — ENTREGUE")
 
             # Notifica o nó Meshtastic de origem (se a interface existir)
-            if self.mesh:
+            if self.mesh and entry.get("node_id"):
                 self.mesh.send_text(
                     f"[APRS] entregue a {entry['dst']}",
-                    destination_id="^all",
+                    destination_id=entry["node_id"],
                     channel_index=None  # usa o canal APRS padrão
                 )
         else:

@@ -241,12 +241,12 @@ class Database:
         self.conn.commit()
         return cur.lastrowid
 
-    def update_message_status(self, msg_id: int, status: str,
+    def update_message_status(self, row_id: int, status: str,
                                ts_ack: str = None):
         self.conn.execute("""
             UPDATE messages SET status=?, ts_ack=?
             WHERE id=?
-        """, (status, ts_ack or datetime.utcnow().isoformat(), msg_id))
+        """, (status, ts_ack or datetime.utcnow().isoformat(), row_id))
         self.conn.commit()
 
     def list_messages(self, limit: int = 100) -> list:

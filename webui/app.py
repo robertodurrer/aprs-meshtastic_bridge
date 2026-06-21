@@ -39,14 +39,9 @@ app = FastAPI(
 webui_dir = Path(__file__).parent.resolve()  # Make path absolute
 template_dir = webui_dir / "templates"
 
-# Configure template engine with cache disabled
-templates = Jinja2Templates(
-    directory=str(template_dir),
-    auto_reload=True  # Desabilita cache
-)
-import jinja2
-templates.env.cache = jinja2.FileSystemBytecodeCache()
+templates = Jinja2Templates(directory=str(template_dir))
 templates.env.autoescape = True
+templates.env.auto_reload = True
 app.mount("/static", StaticFiles(directory=str(webui_dir / "static")), name="static")
 
 def serialize_config(cfg: dict) -> typing.Mapping[str, typing.Any]:
@@ -56,11 +51,11 @@ def serialize_config(cfg: dict) -> typing.Mapping[str, typing.Any]:
     config_dict = {
         "gateway": MappingProxyType({
             "callsign": cfg["gateway"]["callsign"],
-            "comment": cfg["gateway"]["comment"],
-            "icon": cfg["gateway"]["icon"],
+            "comment": cfg["gateway"].get("comment", ""),
+            "icon": cfg["gateway"].get("icon", "/>"),
             "aprs_is_host": cfg["gateway"]["aprs_is_host"],
             "aprs_is_port": cfg["gateway"]["aprs_is_port"],
-            "aprs_is_filter": cfg["gateway"]["aprs_is_filter"]
+            "aprs_is_filter": cfg["gateway"].get("aprs_is_filter", "m/50")
         }),
         "meshtastic": MappingProxyType({
             "connection": cfg["meshtastic"]["connection"],
@@ -146,7 +141,7 @@ async def dashboard(request: Request):
             "stats": {"total_operators": 0, "active_operators": 0, "total_messages": 0, "pending_messages": 0},
             "operators": [],
             "messages": [],
-            "config": cfg
+            "config": serialize_config(cfg)
         })
 
 @app.get("/operators", response_class=HTMLResponse)

@@ -23,6 +23,7 @@ class MeshtasticInterface:
         self.iface = None
         self._running = False
         self._lock = threading.Lock()
+        self._subscribed = False
         self._on_position = None
         self._on_message = None
         self._on_node_update = None
@@ -65,9 +66,11 @@ class MeshtasticInterface:
             # Aguarda estabilização da conexão
             time.sleep(2)
 
-            pub.subscribe(self._receive, "meshtastic.receive")
-            pub.subscribe(self._on_connect_cb, "meshtastic.connection.established")
-            pub.subscribe(self._on_disconnect_cb, "meshtastic.connection.lost")
+            if not self._subscribed:
+                pub.subscribe(self._receive, "meshtastic.receive")
+                pub.subscribe(self._on_connect_cb, "meshtastic.connection.established")
+                pub.subscribe(self._on_disconnect_cb, "meshtastic.connection.lost")
+                self._subscribed = True
 
             log.info(f"Conectado ao nó Meshtastic via {mode.upper()}")
             self._log_node_info()
