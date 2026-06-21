@@ -4,7 +4,6 @@ import sys
 from pathlib import Path
 from typing import List, Dict, Any
 
-import typing
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -41,43 +40,43 @@ template_dir = webui_dir / "templates"
 
 templates = Jinja2Templates(directory=str(template_dir))
 templates.env.autoescape = True
-templates.env.auto_reload = True
+templates.env.cache = None
 app.mount("/static", StaticFiles(directory=str(webui_dir / "static")), name="static")
 
-def serialize_config(cfg: dict) -> typing.Mapping[str, typing.Any]:
-    """Serializa a configuração para ser usada nos templates."""
-    from types import MappingProxyType
-    
-    config_dict = {
-        "gateway": MappingProxyType({
+def _template_cfg(cfg: dict) -> dict:
+    """Retorna cópia segura do cfg para uso nos templates."""
+    return {
+        "gateway": {
             "callsign": cfg["gateway"]["callsign"],
             "comment": cfg["gateway"].get("comment", ""),
             "icon": cfg["gateway"].get("icon", "/>"),
             "aprs_is_host": cfg["gateway"]["aprs_is_host"],
             "aprs_is_port": cfg["gateway"]["aprs_is_port"],
-            "aprs_is_filter": cfg["gateway"].get("aprs_is_filter", "m/50")
-        }),
-        "meshtastic": MappingProxyType({
+            "aprs_is_filter": cfg["gateway"].get("aprs_is_filter", "m/50"),
+        },
+        "meshtastic": {
             "connection": cfg["meshtastic"]["connection"],
             "serial_port": cfg["meshtastic"]["serial_port"],
             "ble_address": cfg["meshtastic"].get("ble_address"),
             "aprs_channel_index": cfg["meshtastic"]["aprs_channel_index"],
             "aprs_channel_name": cfg["meshtastic"]["aprs_channel_name"],
-            "reconnect_interval_s": cfg["meshtastic"]["reconnect_interval_s"]
-        }),
-        "webui": MappingProxyType({
+            "reconnect_interval_s": cfg["meshtastic"]["reconnect_interval_s"],
+        },
+        "database": {
+            "path": cfg["database"]["path"],
+        },
+        "webui": {
             "host": cfg["webui"]["host"],
             "port": cfg["webui"]["port"],
-            "enabled": cfg["webui"]["enabled"]
-        }),
-        "logging": MappingProxyType({
+            "enabled": cfg["webui"]["enabled"],
+        },
+        "logging": {
             "level": cfg["logging"]["level"],
             "file": cfg["logging"]["file"],
             "max_size_mb": cfg["logging"]["max_size_mb"],
-            "backup_count": cfg["logging"]["backup_count"]
-        })
+            "backup_count": cfg["logging"]["backup_count"],
+        },
     }
-    return MappingProxyType(config_dict)
 
 # Modelos Pydantic
 class OperatorCreate(BaseModel):
@@ -126,22 +125,19 @@ async def dashboard(request: Request):
             "pending_messages": len([msg for msg in messages if msg.get("status") == "pending"]),
         }
         
-        template_name = "dashboard.html"
-        return templates.TemplateResponse(template_name, {
-            "request": request,
+        return templates.TemplateResponse(request, "dashboard.html", {
             "stats": stats,
             "operators": operators[:10],  # Últimos 10
             "messages": messages[:10],    # Últimas 10
-            "config": serialize_config(cfg)
+            "config": _template_cfg(cfg)
         })
     except Exception as e:
         log.error(f"Erro no dashboard: {e}")
-        return templates.TemplateResponse("dashboard.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "dashboard.html", {
             "stats": {"total_operators": 0, "active_operators": 0, "total_messages": 0, "pending_messages": 0},
             "operators": [],
             "messages": [],
-            "config": serialize_config(cfg)
+            "config": _template_cfg(cfg)
         })
 
 @app.get("/operators", response_class=HTMLResponse)
@@ -151,16 +147,15 @@ async def operators_page(request: Request):
         operators = db.list_operators(active_only=False)
         # Convert to plain dicts to avoid Jinja2 caching issues
         operators = [dict(op) for op in operators] if operators else []
-        template_name = "operators.html"
-        return templates.TemplateResponse(template_name, {
-            "request": request,
-            "operators": operators
+        return templates.TemplateResponse(request, "operators.html", {
+            "operators": operators,
+            "config": _template_cfg(cfg),
         })
     except Exception as e:
         log.error(f"Erro na página de operadores: {e}")
-        return templates.TemplateResponse("operators.html", {
-            "request": request,
-            "operators": []
+        return templates.TemplateResponse(request, "operators.html", {
+            "operators": [],
+            "config": _template_cfg(cfg),
         })
 
 @app.get("/messages", response_class=HTMLResponse)
@@ -170,25 +165,22 @@ async def messages_page(request: Request):
         messages = db.list_messages(limit=100)
         # Convert to plain dicts to avoid Jinja2 caching issues
         messages = [dict(msg) for msg in messages] if messages else []
-        template_name = "messages.html"
-        return templates.TemplateResponse(template_name, {
-            "request": request,
-            "messages": messages
+        return templates.TemplateResponse(request, "messages.html", {
+            "messages": messages,
+            "config": _template_cfg(cfg),
         })
     except Exception as e:
         log.error(f"Erro na página de mensagens: {e}")
-        return templates.TemplateResponse("messages.html", {
-            "request": request,
-            "messages": []
+        return templates.TemplateResponse(request, "messages.html", {
+            "messages": [],
+            "config": _template_cfg(cfg),
         })
 
 @app.get("/config", response_class=HTMLResponse)
 async def config_page(request: Request):
     """Página de configuração."""
-    template_name = "config.html"
-    return templates.TemplateResponse(template_name, {
-        "request": request,
-        "config": cfg  # Already a dict from config_loader
+    return templates.TemplateResponse(request, "config.html", {
+        "config": _template_cfg(cfg)
     })
 
 # API REST
