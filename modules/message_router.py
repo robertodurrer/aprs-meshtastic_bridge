@@ -17,7 +17,7 @@ import threading
 from typing import Optional
 
 from modules.logger import get_logger
-from modules.aprs_format import format_message
+from modules.aprs_format import format_message, format_ack
 
 log = get_logger("router")
 
@@ -169,6 +169,70 @@ class MessageRouter:
         self.aprs_is.send(entry["packet"])
         threading.Thread(target=self._watch_ack, args=(msg_id,),
                          daemon=True).start()
+
+    def handle_aprs_message(self, parsed: dict):
+        """
+        Recebe mensagem do APRS-IS endereçada a um operador cadastrado
+        e entrega no nó Meshtastic correspondente.
+        """
+        src    = parsed.get("src", "").strip()
+        dst    = parsed.get("dst", "").strip()
+        body   = parsed.get("body", "").strip()
+        msg_id = parsed.get("msg_id")
+
+        if not src or not dst or not body:
+            log.warning("Mensagem APRS sem campos obrigatórios — descartada")
+            return
+
+        op = self.db.get_operator_by_callsign(dst)
+        if not op:
+            log.debug(f"Mensagem APRS para {dst} ignorada — operador não cadastrado")
+            return
+
+        if not op["rx_aprs"]:
+            log.info(f"Mensagem APRS para {op['callsign']} ignorada — rx_aprs=0")
+            return
+
+        if not op["node_id"]:
+            log.warning(f"Operador {op['callsign']} sem node_id — não é possível entregar")
+            return
+
+        try:
+            row_id = self.db.save_message(
+                direction="aprs_to_mesh",
+                src=src,
+                dst=dst,
+                body=body,
+                msg_id=msg_id,
+                status="pending",
+            )
+        except Exception as e:
+            log.error(f"Erro ao salvar mensagem APRS→Mesh no banco: {e}")
+            return
+
+        text = f"{src}: {body}"
+        if len(text) > 228:
+            text = text[:228]
+
+        if not self.mesh:
+            log.error("Interface Meshtastic não disponível — mensagem não entregue")
+            self.db.update_message_status(row_id, "failed")
+            return
+
+        sent = self.mesh.send_text(text, destination_id=op["node_id"], channel_index=None)
+
+        if sent:
+            self.db.update_message_status(row_id, "delivered")
+            self.db.touch_operator(op["callsign"])
+            log.info(f"MSG APRS→Mesh: {src} → {op['callsign']} "
+                     f"(node {op['node_id']}): '{body[:50]}'")
+            if msg_id:
+                ack = format_ack(op["callsign"], src, msg_id)
+                self.aprs_is.send(ack)
+                log.info(f"ACK enviado para {src} (msg_id={msg_id})")
+        else:
+            self.db.update_message_status(row_id, "failed")
+            log.error(f"Falha ao entregar mensagem APRS→Mesh para node {op['node_id']}")
 
     def handle_ack(self, ack_payload: dict):
         """Chamado quando um ACK chega do APRS-IS."""

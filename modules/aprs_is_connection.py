@@ -24,7 +24,10 @@ class APRSISConnection:
         self.port      = gw["aprs_is_port"]
         self.callsign  = gw["callsign"]
         self.passcode  = gw["passcode"]
-        self.filter    = gw.get("aprs_is_filter", "m/50")
+        base_filter    = gw.get("aprs_is_filter", "m/50")
+        # Garante recepção de mensagens endereçadas ao gateway de qualquer origem
+        buddy_filter   = f"g/{self.callsign}*"
+        self.filter    = f"{base_filter} {buddy_filter}"
 
         self._sock: Optional[socket.socket] = None
         self._running  = False

@@ -52,8 +52,7 @@ def on_aprs_is_packet(raw_line: str):
     if parsed["type"] == "ack":
         router.handle_ack(parsed)
     elif parsed["type"] == "message":
-        log.info(f"MSG APRS→Mesh recebida (etapa 6): "
-                 f"{parsed['src']} → {parsed['dst']}: {parsed['body'][:50]}")
+        router.handle_aprs_message(parsed)
 
 def shutdown(sig=None, frame=None):
     log.info("Encerrando gateway...")
